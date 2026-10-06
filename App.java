@@ -1,117 +1,199 @@
-import com.sun.net.httpserver.HttpServer; // Webサーバーを使うために読み込みます。
-import java.net.InetSocketAddress; // 待ち受ける番号を指定するために読み込みます。
-import java.net.URLDecoder; // URL用に変換された文字を元に戻すために読み込みます。
-import java.nio.charset.StandardCharsets; // UTF-8を指定するために読み込みます。
-import java.util.ArrayList; // Todoを入れるリストを作るために読み込みます。
-import java.util.List; // Todoを入れるリストの型を使うために読み込みます。
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpServer;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.sql.Connection; // ★ SQLiteへの接続に使います。
+import java.sql.DriverManager; // ★ JDBCでデータベースを開きます。
+import java.sql.PreparedStatement; // ★ 値を安全にSQLへ渡します。
+import java.sql.ResultSet; // ★ SELECTの結果を読みます。
+import java.sql.SQLException; // ★ データベースのエラーを扱います。
+import java.sql.Statement; // ★ テーブル作成に使います。
 
-public class App { // 実行するプログラムの名前を App にします。
-    static List<Todo> todos = new ArrayList<>(); // ★変更 Todoを保存するリストです。
-    static int nextId = 1; // ★変更 次に振る番号です。
+public class App {
+    private static final String DB_URL = "jdbc:sqlite:todos.db"; // ★ 保存先をSQLiteにします。
 
-    public static void main(String[] args) throws Exception { // ここからプログラムを始めます。
-        HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0); // 8080番で待ち受けるサーバーを作ります。
-        todos.add(new Todo(nextId++, "牛乳を買う")); // ★変更 1件目のサンプルを追加します。
-        Todo egg = new Todo(nextId++, "卵を買う"); // ★変更 2件目のサンプルを作ります。
-        egg.setDone(true); // ★変更 2件目を完了にします。
-        todos.add(egg); // ★変更 2件目をリストに追加します。
-        server.createContext("/", exchange -> { // 「/」へのアクセスが来たときの処理を書きます。
-            String path = exchange.getRequestURI().getPath(); // アクセスされたパスを取り出します。
-            String method = exchange.getRequestMethod(); // GETかPOSTかを取り出します。
-            String message;
-            exchange.getResponseHeaders().set("Content-Type", "text/plain; charset=UTF-8"); // 通常の応答はUTF-8の文字として返します。
-            if (path.equals("/add") && method.equals("POST")) { // フォームから送られたTodoを受け取ります。
-                String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8); // 送られた内容をUTF-8の文字として読みます。
-                String value = body.substring(5); // 先頭の「todo=」を除きます。
-                String title = URLDecoder.decode(value, StandardCharsets.UTF_8); // ★変更 日本語などの文字を元に戻してtitleに入れます。
-                if (!title.isEmpty()) { // ★変更 空の入力は追加しません。
-                    todos.add(new Todo(nextId, title)); // ★変更 入力されたTodoをリストに追加します。
-                    nextId++; // ★変更 次に振る番号を進めます。
-                } // 空の入力かどうかの確認を終えます。
-                exchange.getResponseHeaders().set("Location", "/"); // 戻り先を「/」に指定します。
-                exchange.sendResponseHeaders(303, -1); // ブラウザに戻り先へ移動するよう伝えます。
-                exchange.close(); // この応答を閉じます。
-                return; // ここで追加の処理を終えます。
-            } else if (path.equals("/done") && method.equals("GET")) { // ★追加 完了のリンクを処理します。
-                String query = exchange.getRequestURI().getQuery(); // ★追加 URLからidを受け取ります。
-                if (query != null && query.startsWith("id=") && query.length() > 3) { // ★追加 idがあるか確認します。
-                    try { // ★追加 数字への変換を試します。
-                        int id = Integer.parseInt(query.substring(3)); // ★追加 idを数に変えます。
-                        for (Todo todo : todos) { // ★追加 Todoを1件ずつ調べます。
-                            if (todo.getId() == id) { // ★追加 番号が一致するか確認します。
-                                todo.setDone(true); // ★追加 一致したTodoを完了にします。
-                                break; // ★追加 見つかったので調べるのを終えます。
-                            } // ★追加 番号の確認を終えます。
-                        } // ★追加 Todoを調べ終えます。
-                    } catch (NumberFormatException e) { // ★追加 数字でなければ何も変えません。
-                    } // ★追加 数字への変換の処理を終えます。
-                } // ★追加 idの確認を終えます。
-                exchange.getResponseHeaders().set("Location", "/"); // ★追加 戻り先を指定します。
-                exchange.sendResponseHeaders(303, -1); // ★追加 一覧へ戻します。
-                exchange.close(); // ★追加 この応答を閉じます。
-                return; // ★追加 完了の処理を終えます。
-            } else if (path.equals("/delete") && method.equals("GET")) { // ★追加 削除のリンクを処理します。
-                String query = exchange.getRequestURI().getQuery(); // ★追加 URLからidを受け取ります。
-                if (query != null && query.startsWith("id=") && query.length() > 3) { // ★追加 idがあるか確認します。
-                    try { // ★追加 数字への変換を試します。
-                        int id = Integer.parseInt(query.substring(3)); // ★追加 idを数に変えます。
-                        todos.removeIf(todo -> todo.getId() == id); // ★追加 一致したTodoを取り除きます。
-                    } catch (NumberFormatException e) { // ★追加 数字でなければ何も変えません。
-                    } // ★追加 数字への変換の処理を終えます。
-                } // ★追加 idの確認を終えます。
-                exchange.getResponseHeaders().set("Location", "/"); // ★追加 戻り先を指定します。
-                exchange.sendResponseHeaders(303, -1); // ★追加 一覧へ戻します。
-                exchange.close(); // ★追加 この応答を閉じます。
-                return; // ★追加 削除の処理を終えます。
-            } else if (path.equals("/")) { // 「/」で入力フォームとTodoの一覧を表示します。
-                String html = "<form method='post' action='/add'><input name='todo'><button>追加</button></form><ul>";
-                for (Todo todo : todos) { // ★変更 Todoを1件ずつ取り出します。
-                    String mark = ""; // ★変更 未完了なら印を付けません。
-                    if (todo.isDone()) { // ★変更 完了しているか確認します。
-                        mark = " ✔"; // ★変更 完了の印を付けます。
-                    } // ★変更 完了の確認を終えます。
-                    html += "<li>" + todo.getTitle() + mark + " <a href='/done?id=" + todo.getId() + "'>完了</a> <a href='/delete?id=" + todo.getId() + "'>削除</a></li>"; // ★追加 タイトル、印、完了と削除のリンクを足します。
-                } // すべてのTodoを足したので繰り返しを終えます。
-                html += "</ul>"; // 箇条書きのHTMLを閉じます。
-                message = html; // 作ったHTMLを応答に使います。
-                exchange.getResponseHeaders().set("Content-Type", "text/html; charset=UTF-8"); // 「/」はHTMLとして返します。
-            } else {
-                message = "ページが見つかりません";
+    public static void main(String[] args) throws Exception {
+        createTable(); // ★ 起動時にtodos表を用意します。
+        HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
+        server.createContext("/api/todos", exchange -> { // JSON一覧の入口を追加します。
+            if (!exchange.getRequestURI().getPath().equals("/api/todos")) { // 対象のパスを確認します。
+                send(exchange, 404, "ページが見つかりません", "text/plain"); // 別のパスは404にします。
+                return; // 処理を終えます。
+            } // パスの確認を終えます。
+            if (!exchange.getRequestMethod().equals("GET")) { // GETだけを受け付けます。
+                send(exchange, 405, "GETのみ利用できます", "text/plain"); // 別のメソッドは405にします。
+                return; // 処理を終えます。
+            } // メソッドの確認を終えます。
+            try (Connection connection = DriverManager.getConnection(DB_URL); // SQLiteへ接続します。
+                    Statement statement = connection.createStatement(); // SELECTを実行する準備をします。
+                    ResultSet results = statement.executeQuery("SELECT title, done FROM todos ORDER BY id")) { // 全Todoを読みます。
+                StringBuilder json = new StringBuilder("["); // JSON配列を始めます。
+                while (results.next()) { // Todoを1件ずつ処理します。
+                    if (json.length() > 1)
+                        json.append(','); // 2件目以降に区切りを入れます。
+                    json.append("{\"title\":\"").append(jsonEscape(results.getString("title"))) // タイトルをJSONへ追加します。
+                            .append("\",\"done\":").append(results.getInt("done") != 0) // 完了状態を真偽値で追加します。
+                            .append('}'); // 1件分のJSONを閉じます。
+                } // 全Todoの処理を終えます。
+                json.append(']'); // JSON配列を閉じます。
+                byte[] body = json.toString().getBytes(StandardCharsets.UTF_8); // UTF-8の応答データにします。
+                exchange.getResponseHeaders().set("Content-Type", "application/json"); // charsetを付けずにJSON型を指定します。
+                exchange.sendResponseHeaders(200, body.length); // 応答の状態と長さを送ります。
+                try (var output = exchange.getResponseBody()) { // 応答ストリームを確実に閉じます。
+                    output.write(body); // JSONを送ります。
+                } // 応答ストリームを閉じます。
+            } catch (SQLException e) { // データベースエラーを処理します。
+                e.printStackTrace(); // 詳細をサーバー側に記録します。
+                send(exchange, 500, "データベースエラー", "text/plain"); // エラーを返します。
+            } // JSON一覧の処理を終えます。
+        }); // APIの入口の定義を終えます。
+        server.createContext("/", exchange -> {
+            try { // ★ SQLの失敗をHTTP 500として返します。
+                handle(exchange); // ★ 各リクエストでデータベースを操作します。
+            } catch (SQLException e) { // ★ データベースのエラーを処理します。
+                e.printStackTrace(); // ★ 詳細はサーバー側に表示します。
+                send(exchange, 500, "データベースエラー", "text/plain"); // ★ 利用者にエラーを知らせます。
             }
-            byte[] body = message.getBytes("UTF-8"); // 文字を送信用のデータに変えます。
-            exchange.sendResponseHeaders(200, body.length); // 正常に返すこととデータの長さを伝えます。
-            exchange.getResponseBody().write(body); // データをブラウザへ送ります。
-            exchange.getResponseBody().close(); // 送信を終えます。
-        }); // 「/」へのアクセスの処理を終えます。
-        server.start(); // サーバーの待ち受けを始めます。
-        System.out.println("サーバー起動: http://localhost:8080 （止めるときは Ctrl+C）"); // 起動したことを表示します。
-    } // プログラムの処理を終えます。
-} // App の定義を終えます。
+        });
+        server.start();
+        System.out.println("サーバー起動: http://localhost:8080 （止めるときは Ctrl+C）");
+    }
 
-class Todo { // ★変更 Todoのデータを表すクラスです。
-    private final int id; // ★変更 Todoの番号です。
-    private final String title; // ★変更 やることです。
-    private boolean done; // ★変更 終わったかどうかです。
+    private static void createTable() throws SQLException { // ★ 表がなければ作成します。
+        try (Connection connection = DriverManager.getConnection(DB_URL);
+                Statement statement = connection.createStatement()) { // ★ 接続とStatementを閉じます。
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS todos "
+                    + "(id INTEGER PRIMARY KEY, title TEXT, done INTEGER)"); // ★ 必要な3列を定義します。
+        }
+    }
 
-    Todo(int id, String title) { // ★変更 番号とやることを受け取ります。
-        this.id = id; // ★変更 番号を保存します。
-        this.title = title; // ★変更 やることを保存します。
-        this.done = false; // ★変更 最初は未完了にします。
-    } // ★変更 コンストラクタを終えます。
+    private static void handle(HttpExchange exchange) throws IOException, SQLException { // ★ SQL例外も扱います。
+        String path = exchange.getRequestURI().getPath();
+        String method = exchange.getRequestMethod();
+        if (path.equals("/add") && method.equals("POST")) {
+            String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            String value = body.startsWith("todo=") ? body.substring(5) : ""; // ★ 不正なフォーム内容を無視します。
+            String title = URLDecoder.decode(value, StandardCharsets.UTF_8).replace('\r', ' ').replace('\n', ' ');
+            if (!title.isEmpty()) {
+                try (Connection connection = DriverManager.getConnection(DB_URL);
+                        PreparedStatement statement = connection.prepareStatement(
+                                "INSERT INTO todos (title, done) VALUES (?, 0)")) { // ★ INSERTを準備します。
+                    statement.setString(1, title); // ★ 入力値をパラメータとして渡します。
+                    statement.executeUpdate(); // ★ 1件追加します。
+                }
+            }
+            redirect(exchange);
+            return;
+        } else if (path.equals("/done") && method.equals("GET")) {
+            Integer id = queryId(exchange); // ★ 更新対象のIDを読みます。
+            if (id != null) {
+                try (Connection connection = DriverManager.getConnection(DB_URL);
+                        PreparedStatement statement = connection.prepareStatement(
+                                "UPDATE todos SET done = 1 WHERE id = ?")) { // ★ UPDATEを準備します。
+                    statement.setInt(1, id); // ★ IDをパラメータとして渡します。
+                    statement.executeUpdate(); // ★ 完了状態を更新します。
+                }
+            }
+            redirect(exchange);
+            return;
+        } else if (path.equals("/delete") && method.equals("GET")) {
+            Integer id = queryId(exchange); // ★ 削除対象のIDを読みます。
+            if (id != null) {
+                try (Connection connection = DriverManager.getConnection(DB_URL);
+                        PreparedStatement statement = connection.prepareStatement(
+                                "DELETE FROM todos WHERE id = ?")) { // ★ DELETEを準備します。
+                    statement.setInt(1, id); // ★ IDをパラメータとして渡します。
+                    statement.executeUpdate(); // ★ 1件削除します。
+                }
+            }
+            redirect(exchange);
+            return;
+        } else if (path.equals("/") && method.equals("GET")) {
+            StringBuilder html = new StringBuilder(
+                    "<form method='post' action='/add'><input name='todo'><button>追加</button></form><ul>"); // ★
+                                                                                                            // 一覧を組み立てます。
+            try (Connection connection = DriverManager.getConnection(DB_URL);
+                    Statement statement = connection.createStatement();
+                    ResultSet results = statement.executeQuery(
+                            "SELECT id, title, done FROM todos ORDER BY id")) { // ★ SELECTで一覧を取得します。
+                int totalCount = 0;
+int doneCount = 0;
+                            while (results.next()) { // ★ 取得した行を表示します。
+                   totalCount++;
 
-    int getId() { // ★変更 番号を読み出します。
-        return id; // ★変更 保存した番号を返します。
-    } // ★変更 getIdを終えます。
+if (results.getInt("done") != 0) {
+    doneCount++;
+}
+                                int id = results.getInt("id"); // ★ DBのIDを使います。
+                    String title = escapeHtml(results.getString("title")); // ★ タイトルをHTML用に変換します。
+                    String mark = results.getInt("done") != 0 ? " ✔" : ""; // ★ DBの完了状態を使います。
+                    html.append("<li>").append(title).append(mark)
+                            .append(" <a href='/done?id=").append(id)
+                            .append("'>完了</a> <a href='/delete?id=").append(id)
+                            .append("'>削除</a></li>"); // ★ SELECTしたTodoを表示します。
+                }html.append("<p>" + totalCount + "件中" + doneCount + "件 完了</p>");
+            }
+            html.append("</ul>");
+            send(exchange, 200, html.toString(), "text/html"); // ★ DBから作った一覧を返します。
+            return;
+        }
+        send(exchange, 404, "ページが見つかりません", "text/plain"); // ★ 未知のURLを処理します。
+    }
 
-    String getTitle() { // ★変更 やることを読み出します。
-        return title; // ★変更 保存したやることを返します。
-    } // ★変更 getTitleを終えます。
+    private static Integer queryId(HttpExchange exchange) { // ★ URLのIDを検証します。
+        String query = exchange.getRequestURI().getQuery();
+        if (query == null || !query.startsWith("id=")) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(query.substring(3));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
 
-    boolean isDone() { // ★変更 終わったかどうかを読み出します。
-        return done; // ★変更 保存した状態を返します。
-    } // ★変更 isDoneを終えます。
+    private static String escapeHtml(String value) { // ★ 保存したタイトルを安全に表示します。
+        return value.replace("&", "&amp;").replace("<", "&lt;")
+                .replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;");
+    }
+    private static String jsonEscape(String value) { // JSON文字列の中身をエスケープします。
+        StringBuilder escaped = new StringBuilder(); // 変換後の文字をためます。
+        for (int i = 0; i < value.length(); i++) { // 文字を順に調べます。
+            char c = value.charAt(i); // 現在の文字を取り出します。
+            switch (c) { // 特別な文字を判定します。
+                case '"': escaped.append("\\\""); break; // 引用符をエスケープします。
+                case '\\': escaped.append("\\\\"); break; // バックスラッシュをエスケープします。
+                case '\b': escaped.append("\\b"); break; // バックスペースをエスケープします。
+                case '\f': escaped.append("\\f"); break; // 改ページをエスケープします。
+                case '\n': escaped.append("\\n"); break; // 改行をエスケープします。
+                case '\r': escaped.append("\\r"); break; // 復帰をエスケープします。
+                case '\t': escaped.append("\\t"); break; // タブをエスケープします。
+                default: // それ以外の文字を処理します。
+                    if (c < 0x20) { // 残りの制御文字を判定します。
+                        escaped.append("\\u00").append(Character.forDigit(c >>> 4, 16)) // 上位の桁を書きます。
+                                .append(Character.forDigit(c & 0x0f, 16)); // 下位の桁を書きます。
+                    } else { // 通常の文字を処理します。
+                        escaped.append(c); // そのまま追加します。
+                    } // 制御文字の処理を終えます。
+            } // 文字種の判定を終えます。
+        } // 全文字の処理を終えます。
+        return escaped.toString(); // エスケープ済み文字列を返します。
+    } // 補助メソッドを終えます。
 
-    void setDone(boolean done) { // ★変更 終わったかどうかを書き換えます。
-        this.done = done; // ★変更 新しい状態を保存します。
-    } // ★変更 setDoneを終えます。
-} // ★変更 Todoクラスを終えます。
+    private static void redirect(HttpExchange exchange) throws IOException {
+        exchange.getResponseHeaders().set("Location", "/");
+        exchange.sendResponseHeaders(303, -1);
+        exchange.close();
+    }
+
+    private static void send(HttpExchange exchange, int status, String message, String type) throws IOException {
+        byte[] body = message.getBytes(StandardCharsets.UTF_8);
+        exchange.getResponseHeaders().set("Content-Type", type + "; charset=UTF-8");
+        exchange.sendResponseHeaders(status, body.length);
+        try (var output = exchange.getResponseBody()) {
+            output.write(body);
+        }
+    }
+}
