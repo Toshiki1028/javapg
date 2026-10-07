@@ -3,6 +3,7 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection; // ★ SQLiteへの接続に使います。
 import java.sql.DriverManager; // ★ JDBCでデータベースを開きます。
@@ -111,9 +112,10 @@ public class App {
             redirect(exchange);
             return;
         } else if (path.equals("/") && method.equals("GET")) {
-            String query = exchange.getRequestURI().getQuery();
+            String query = exchange.getRequestURI().getRawQuery();
             String filter = "all";
             String sort = "";
+            String keyword = "";
             if (query != null) {
                 for (String parameter : query.split("&")) {
                     if (parameter.equals("filter=todo")) {
@@ -126,6 +128,12 @@ public class App {
                         sort = "new";
                     } else if (parameter.equals("sort=name")) {
                         sort = "name";
+                    } else if (parameter.startsWith("q=")) {
+                        try {
+                            keyword = URLDecoder.decode(parameter.substring(2), StandardCharsets.UTF_8);
+                        } catch (IllegalArgumentException e) {
+                            keyword = "";
+                        }
                     }
                 }
             }
@@ -135,6 +143,10 @@ public class App {
             } else if (filter.equals("done")) {
                 sql += " WHERE done != 0";
             }
+            if (!keyword.isEmpty()) {
+                sql += filter.equals("all") ? " WHERE" : " AND";
+                sql += " title LIKE ? ESCAPE '!'";
+            }
             if (sort.equals("new")) {
                 sql += " ORDER BY id DESC";
             } else if (sort.equals("name")) {
@@ -143,33 +155,48 @@ public class App {
                 sql += " ORDER BY id";
             }
             String sortQuery = sort.isEmpty() ? "" : "&amp;sort=" + sort;
+            String keywordQuery = keyword.isEmpty() ? "" : "&amp;q=" + URLEncoder.encode(keyword, StandardCharsets.UTF_8);
             StringBuilder html = new StringBuilder(
                     "<form method='post' action='/add'><input name='todo'><button>追加</button></form>");
-            html.append("<a href='/?filter=all").append(sortQuery).append("'>全部</a> | ")
-                    .append("<a href='/?filter=todo").append(sortQuery).append("'>未完了</a> | ")
-                    .append("<a href='/?filter=done").append(sortQuery).append("'>完了</a><br>")
-                    .append("<a href='/?filter=").append(filter).append("&amp;sort=new'>新しい順</a> | ")
-                    .append("<a href='/?filter=").append(filter).append("&amp;sort=name'>名前順</a><ul>"); // ★ 一覧を組み立てます。
+            html.append("<form method='get' action='/'><input name='q' value='")
+                    .append(escapeHtml(keyword)).append("'><button>検索</button>")
+                    .append("<input type='hidden' name='filter' value='").append(filter).append("'>");
+            if (!sort.isEmpty()) {
+                html.append("<input type='hidden' name='sort' value='").append(sort).append("'>");
+            }
+            html.append("</form>")
+                    .append("<a href='/?filter=all").append(sortQuery).append(keywordQuery).append("'>全部</a> | ")
+                    .append("<a href='/?filter=todo").append(sortQuery).append(keywordQuery).append("'>未完了</a> | ")
+                    .append("<a href='/?filter=done").append(sortQuery).append(keywordQuery).append("'>完了</a><br>")
+                    .append("<a href='/?filter=").append(filter).append("&amp;sort=new").append(keywordQuery)
+                    .append("'>新しい順</a> | ")
+                    .append("<a href='/?filter=").append(filter).append("&amp;sort=name").append(keywordQuery)
+                    .append("'>名前順</a><ul>"); // ★ 一覧を組み立てます。
             try (Connection connection = DriverManager.getConnection(DB_URL);
-                    Statement statement = connection.createStatement();
-                    ResultSet results = statement.executeQuery(sql)) { // ★ フィルターと並び順に応じたSELECTで一覧を取得します。
-                int totalCount = 0;
-                int doneCount = 0;
-                while (results.next()) { // ★ 取得した行を表示します。
-                    totalCount++;
-
-                    if (results.getInt("done") != 0) {
-                        doneCount++;
-                    }
-                    int id = results.getInt("id"); // ★ DBのIDを使います。
-                    String title = escapeHtml(results.getString("title")); // ★ タイトルをHTML用に変換します。
-                    String mark = results.getInt("done") != 0 ? " ✔" : ""; // ★ DBの完了状態を使います。
-                    html.append("<li>").append(title).append(mark)
-                            .append(" <a href='/done?id=").append(id)
-                            .append("'>完了</a> <a href='/delete?id=").append(id)
-                            .append("'>削除</a></li>"); // ★ SELECTしたTodoを表示します。
+                    PreparedStatement statement = connection.prepareStatement(sql)) {
+                if (!keyword.isEmpty()) {
+                    String escapedKeyword = keyword.replace("!", "!!").replace("%", "!%").replace("_", "!_");
+                    statement.setString(1, "%" + escapedKeyword + "%");
                 }
-                html.append("<p>" + totalCount + "件中" + doneCount + "件 完了</p>");
+                try (ResultSet results = statement.executeQuery()) { // ★ 条件に応じたSELECTで一覧を取得します。
+                    int totalCount = 0;
+                    int doneCount = 0;
+                    while (results.next()) { // ★ 取得した行を表示します。
+                        totalCount++;
+
+                        if (results.getInt("done") != 0) {
+                            doneCount++;
+                        }
+                        int id = results.getInt("id"); // ★ DBのIDを使います。
+                        String title = escapeHtml(results.getString("title")); // ★ タイトルをHTML用に変換します。
+                        String mark = results.getInt("done") != 0 ? " ✔" : ""; // ★ DBの完了状態を使います。
+                        html.append("<li>").append(title).append(mark)
+                                .append(" <a href='/done?id=").append(id)
+                                .append("'>完了</a> <a href='/delete?id=").append(id)
+                                .append("'>削除</a></li>"); // ★ SELECTしたTodoを表示します。
+                    }
+                    html.append("<p>" + totalCount + "件中" + doneCount + "件 完了</p>");
+                }
             }
             html.append("</ul>");
             send(exchange, 200, html.toString(), "text/html"); // ★ DBから作った一覧を返します。
