@@ -30,7 +30,7 @@ public class App {
             + "a{color:#245da8;text-decoration:none}a:hover{text-decoration:underline}"
             + ".app-shell{max-width:880px;margin:32px auto;padding:32px;background:#fff;border:1px solid #e2e7ef;border-radius:18px;box-shadow:0 12px 32px #23344a12}"
             + ".app-header{display:flex;justify-content:space-between;align-items:center;gap:20px;padding-bottom:22px;margin-bottom:26px;border-bottom:1px solid #e5e9f0}"
-            + ".brand{margin:0;color:#204879;font-size:1.65rem;letter-spacing:.05em}.subtitle{margin:2px 0 0;color:#6d7887;font-size:.9rem}"
+            + ".brand{margin:0;color:#204879;font-size:1.65rem;letter-spacing:.05em;font-weight:700}.subtitle{margin:2px 0 0;color:#6d7887;font-size:.9rem}"
             + ".mode-nav,.footer-nav{display:flex;flex-wrap:wrap;gap:8px}.mode-nav a,.mode-nav span,.footer-nav a{padding:9px 14px;border-radius:10px;font-weight:700}"
             + ".mode-nav a{background:#f1f4f8;color:#46566a}.mode-nav .active{background:#e7f0ff;color:#205aa4}.footer-nav a{background:#f1f4f8}"
             + ".mission-shell{background:#fffaf6;border-color:#efd7c5}.mission-shell .brand{color:#a84530}.mission-shell .mode-nav .active{background:#fbe2d7;color:#a53a27}"
@@ -47,14 +47,21 @@ public class App {
             + ".todo-list,.mission-list{list-style:none;margin:0;padding:0;display:grid;gap:14px}.todo-list{grid-column:1/-1;grid-row:3;gap:9px}.todo-card,.mission-item{min-width:0;padding:18px;border:1px solid #dfe5ed;border-radius:14px;background:#fff;box-shadow:0 3px 12px #2733460a;overflow-wrap:anywhere}.todo-card{padding:12px 14px}"
             + ".todo-head{display:flex;align-items:center;flex-wrap:wrap;gap:10px}.todo-title,.mission-title{font-size:1.1rem;font-weight:750;color:#25354b}.todo-meta,.mission-meta{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0;color:#627187;font-size:.88rem}.todo-meta{align-items:center;gap:5px 7px;margin:6px 0 9px;font-size:.82rem}"
             + ".todo-meta span,.mission-meta span{padding:3px 9px;background:#f1f4f8;border-radius:7px}.todo-meta span{padding:2px 7px}.state-badge{padding:3px 9px;border-radius:999px;background:#e8f3ed;color:#247448;font-size:.76rem;font-weight:700}.todo-meta .state-badge{border-radius:999px;background:#e8f3ed;color:#247448}.todo-meta .state-badge.done{background:#e9edf2;color:#586575}"
-            + ".todo-card.is-done{background:#f8f9fb}.is-done .todo-title{text-decoration:line-through;color:#6a7685}.todo-card.due-today{border-color:#d26464;background:#fff8f8;box-shadow:0 0 0 1px #d26464,0 3px 12px #2733460a}.todo-card.due-tomorrow{border-color:#c9a735;background:#fffdf3;box-shadow:0 0 0 1px #c9a735,0 3px 12px #2733460a}"
+            + ".todo-card.is-done{background:#f8f9fb}.is-done .todo-title{text-decoration:line-through;color:#6a7685}.todo-card.due-today{border:2px solid #d95c5c;background:#fff0f0}"
+            + ".todo-card.due-tomorrow{border:2px solid #d6b43c;background:#fffbea}"
             + ".todo-actions{display:flex;flex-wrap:wrap;gap:6px}.todo-actions .action,.todo-actions .deployed{min-height:30px;padding:4px 9px;font-size:.8rem}.action{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;font-size:.85rem}.action:hover{text-decoration:none;filter:brightness(.94)}"
             + ".action.done{background:#e0f1e5;color:#1d7040}.action.edit{background:#e6edf6;color:#315678}.action.delete{background:#fde9e9;color:#a93838}.action.mission{background:#f4e8fa;color:#744293}"
             + ".deployed{display:inline-flex;align-items:center;min-height:40px;background:#c9463f;color:#fff;border-radius:9px;padding:9px 14px;font-size:.85rem;font-weight:700;cursor:default;user-select:none}"
             + ".section-heading{grid-column:1/-1;grid-row:2;display:flex;align-items:center;flex-wrap:wrap;gap:6px 16px;margin:12px 0 9px;font-size:1.1rem;color:#34465e}.section-heading h2{margin:0;font-size:inherit}.deadline-legend{display:inline-flex;flex-wrap:wrap;gap:4px 12px;color:#627187;font-size:.75rem;font-weight:500}.deadline-legend-item{display:inline-flex;align-items:center;gap:5px}.deadline-legend-item::before{content:'';width:10px;height:10px;border-radius:3px;flex:none}.deadline-legend-item.tomorrow::before{background:#fff0b6;border:1px solid #c9a735}.deadline-legend-item.today::before{background:#ffe1e1;border:1px solid #d26464}.count-status{grid-column:2;grid-row:1;justify-self:end;margin:0;padding:6px 10px;border:1px solid #dce6f3;border-radius:8px;background:#f2f7fd;color:#385b82;font-size:.82rem;font-weight:700;white-space:nowrap}"
-            + ".mission-panel{padding:26px;border:1px solid #edcbb5;border-radius:16px;background:#fff;box-shadow:0 4px 18px #91482a12}.mission-panel h1{margin:0;color:#aa4630;letter-spacing:.06em}.mission-panel h2{margin:8px 0 14px;font-size:1.1rem;color:#6a4b3d}"
+            + ".mission-panel{padding:26px;border:1px solid #edcbb5;border-radius:16px;background:#fff;box-shadow:0 4px 18px #91482a12}mission-panel h1{margin:0;color:#aa4630;font-weight:inherit};mission-panel h1{margin:0;color:#aa4630;letter-spacing:.06em}.mission-panel h2{margin:8px 0 14px;font-size:1.1rem;color:#6a4b3d}"
             + ".mission-progress{margin:0 0 18px;color:#755f51;font-weight:700}.mission-item{border-color:#eddacb;background:#fffdfb}.mission-item .action{background:#e2efe5;color:#1c7040}.mission-meta{margin-bottom:12px}"
             + ".meter-row{margin:16px 0}.meter-label{margin:0 0 7px;font-weight:800;color:#674b3e}.gauge{width:100%;max-width:360px;height:16px;background:#e7e5e3;border-radius:999px;overflow:hidden}.gauge span{display:block;height:100%;background:#dc9444;border-radius:999px}"
+            + ".level-up{margin:14px 0;padding:10px 14px;border-radius:12px;font-size:1.4rem;font-weight:800;text-align:center;"
+            + "background:linear-gradient(90deg,#ff5f6d,#ffc371,#fff36b,#6ee7b7,#60a5fa,#a78bfa,#f472b6);"
+            + "background-size:300% 300%;color:#fff;text-shadow:0 2px 6px #0004;box-shadow:0 0 18px #f59e0b55;"
+            + "animation:levelUpRainbow 1.2s ease-in-out infinite alternate,levelUpPop .45s ease-out}"
+            + "@keyframes levelUpRainbow{0%{background-position:0% 50%}100%{background-position:100% 50%}}"
+            + "@keyframes levelUpPop{0%{transform:scale(.75);opacity:0}70%{transform:scale(1.08);opacity:1}100%{transform:scale(1)}}"
             + ".level-meter .gauge span{background:#c65a43}.complete-panel{text-align:center;padding:48px 24px;background:linear-gradient(150deg,#fff9ee,#fff)}.complete-panel h1{font-size:2rem}.complete-panel .gauge{margin:auto}"
             + ".empty-state{padding:28px;border:1px dashed #dfbfa8;border-radius:13px;background:#fff9f3;text-align:center;color:#725747}.empty-state p{margin:5px 0}.footer-nav{margin-top:24px}"
             + ".edit-form{display:grid;gap:12px;max-width:560px}.edit-form button{justify-self:start}.edit-card h1{margin-top:0}"
@@ -70,6 +77,7 @@ public class App {
         final Set<Integer> selected = new HashSet<>();
         final Set<Integer> completedInRun = new HashSet<>();
         int earnedCount;
+        int lastLevel = 1;
         boolean active;
     }
 
@@ -159,8 +167,24 @@ public class App {
             MissionSession session = missionSession(exchange);
             synchronized (session) {
                 session.active = true;
+            }
+            redirect(exchange, "/mission/play");
+            return;
+        } else if (path.equals("/mission/reset") && method.equals("GET")) {
+            MissionSession session = missionSession(exchange);
+            synchronized (session) {
                 session.completedInRun.clear();
                 session.earnedCount = 0;
+                session.active = true;
+            }
+            redirect(exchange, "/mission/play");
+            return;
+
+        } else if (path.equals("/mission/continue") && method.equals("GET")) {
+            MissionSession session = missionSession(exchange);
+            synchronized (session) {
+                session.completedInRun.clear();
+                session.active = true;
             }
             redirect(exchange, "/mission/play");
             return;
@@ -208,36 +232,59 @@ public class App {
                         remaining++;
                         String category = results.getString("category");
                         missions.append("<li class='mission-item'><span class='mission-title'>")
-                                .append(escapeHtml(results.getString("title"))).append("</span><div class='mission-meta'>")
-                                .append(category == null || category.isEmpty() ? "" : "<span>カテゴリ: " + escapeHtml(category) + "</span>")
-                                .append(dueDate == null || dueDate.isEmpty() ? "" : "<span>締切: " + escapeHtml(dueDate) + "</span>")
-                                .append("</div><a class='action' href='/mission/done?id=").append(id).append("'>達成</a></li>");
+                                .append(escapeHtml(results.getString("title")))
+                                .append("</span><div class='mission-meta'>")
+                                .append(category == null || category.isEmpty() ? ""
+                                        : "<span>カテゴリ: " + escapeHtml(category) + "</span>")
+                                .append(dueDate == null || dueDate.isEmpty() ? ""
+                                        : "<span>締切: " + escapeHtml(dueDate) + "</span>")
+                                .append("</div><a class='action' href='/mission/done?id=").append(id)
+                                .append("'>達成</a></li>");
                     }
                 }
                 missions.append("</ul>");
                 int completed = session.completedInRun.size();
                 int total = remaining + completed;
                 int level = Math.min(5, 1 + session.earnedCount / 3);
+                boolean levelUp = level > session.lastLevel;
+                session.lastLevel = level;
                 int expPercent = level == 5 ? 100 : (session.earnedCount % 3) * 100 / 3;
-                String gauges = "<div class='meter-row exp-meter'><p class='meter-label'>EXP</p>" + gauge(expPercent)
-                        + "</div><div class='meter-row level-meter'><p class='meter-label'>LEVEL " + level + "</p>"
-                        + gauge(level * 20) + "</div>";
+                String gauges = "<div class='meter-row exp-meter'><p class='meter-label'>EXP</p>"
+                        + gauge(expPercent)
+                        + "</div>"
+                        + "<p class='meter-label'>LEVEL " + level + "</p>";
+
+                String levelUpMessage = levelUp
+                        ? "<div class='level-up'>LEVEL UP!</div>"
+                        : "";
                 if (total > 0 && remaining == 0) {
                     html = "<section class='mission-panel complete-panel'><h1>MISSION COMPLETE!</h1>"
                             + "<p>おめでとう！すべてのミッションを達成しました！</p>"
-                            + "<p class='mission-progress'>" + total + "件中" + completed + "件達成</p>" + gauges + "</section>";
+                            + "<p class='mission-progress'>" + total + "件中" + completed + "件達成</p>"
+                            + gauges
+                            + levelUpMessage
+                            + "<p><strong>ミッションモードを継続しますか？</strong></p>"
+                            + "<div class='mission-complete-actions'>"
+                            + "<a class='action' href='/mission/continue'>継続する</a>"
+                            + "<a class='action delete' href='/mission/reset'>最初から</a>"
+                            + "</div>"
+                            + "</section>";
                 } else {
                     html = "<section class='mission-panel'><h1>MISSION MODE</h1><h2>今日のミッション</h2>"
-                            + "<p class='mission-progress'>" + total + "件中" + completed + "件達成</p>" + gauges
-                            + (total == 0 ? "<div class='empty-state'><p>現在出撃中のミッションはありません</p>"
-                                    + "<p>通常モードから『ミッションへ』を選択してください</p></div>" : missions.toString())
+                            + "<p class='mission-progress'>" + total + "件中" + completed + "件達成</p>"
+                            + gauges
+                            + levelUpMessage
+                            + (total == 0
+                                    ? "<div class='empty-state'><p>現在出撃中のミッションはありません</p>"
+                                            + "<p>通常モードから『ミッションへ』を選択してください</p></div>"
+                                    : missions.toString())
                             + "</section>";
                 }
             }
             exchange.getResponseHeaders().set("Cache-Control", "no-store");
             send(exchange, 200, PAGE_TOP + "<main class='app-shell mission-shell'>"
                     + "<header class='app-header'><div><p class='brand'>TASK QUEST</p>"
-                    + "<p class='subtitle'>今日のタスクをミッションに</p></div>"
+                    + "<p class='subtitle'>今日のTodoをミッション形式で進め、EXPを獲得してレベルアップできます。</p></div>"
                     + "<nav class='mode-nav'><a href='/'>通常モード</a><span class='active'>ミッションモード</span></nav></header>"
                     + html + "<nav class='footer-nav'><a href='/mission'>ミッションを開き直す</a>"
                     + "<a href='/'>通常モードに戻る</a></nav>" + PAGE_END, "text/html");
@@ -369,7 +416,8 @@ public class App {
                             + "<nav class='mode-nav'><a href='/'>通常モード</a><a href='/mission'>ミッションモード</a></nav></header>"
                             + "<h1>Todoを編集</h1><form class='edit-form' method='post' action='/update'>"
                             + "<input type='hidden' name='id' value='" + id + "'>"
-                            + "<input name='title' aria-label='Todoタイトル' value='" + escapeHtml(results.getString("title")) + "'>"
+                            + "<input name='title' aria-label='Todoタイトル' value='"
+                            + escapeHtml(results.getString("title")) + "'>"
                             + "<input type='date' name='due_date' aria-label='締切日' value='"
                             + escapeHtml(dueDate == null ? "" : dueDate) + "'>"
                             + "<input name='category' aria-label='カテゴリ' placeholder='カテゴリ' value='"
@@ -483,8 +531,10 @@ public class App {
                 sql += " ORDER BY id";
             }
             String sortQuery = sort.isEmpty() ? "" : "&amp;sort=" + sort;
-            String keywordQuery = keyword.isEmpty() ? "" : "&amp;q=" + URLEncoder.encode(keyword, StandardCharsets.UTF_8);
-            String categoryQuery = category.isEmpty() ? "" : "&amp;category=" + URLEncoder.encode(category, StandardCharsets.UTF_8);
+            String keywordQuery = keyword.isEmpty() ? ""
+                    : "&amp;q=" + URLEncoder.encode(keyword, StandardCharsets.UTF_8);
+            String categoryQuery = category.isEmpty() ? ""
+                    : "&amp;category=" + URLEncoder.encode(category, StandardCharsets.UTF_8);
             List<String> categoryOptions = new ArrayList<>();
             try (Connection connection = DriverManager.getConnection(DB_URL);
                     Statement statement = connection.createStatement();
@@ -497,7 +547,9 @@ public class App {
             StringBuilder html = new StringBuilder(
                     PAGE_TOP + "<main class='app-shell normal-shell'>"
                             + "<header class='app-header'><div><h1 class='brand'>TASK QUEST</h1>"
-                            + "<p class='subtitle'>毎日のTodoを、見やすく整理</p></div>"
+                            + "<p class='subtitle'>毎日のTodoを、見やすく整理</p>"
+                            + "<p class='mission-guide'><strong>今日やるTodoに集中したいときは、ミッションモードへ！</strong><br>"
+                            + "※「ミッションへ」ボタンで、挑戦したいTodoを事前にストックできます。</p></div>"
                             + "<nav class='mode-nav'><span class='active'>通常モード</span>"
                             + "<a href='/mission'>ミッションモード</a></nav></header>"
                             + "<div class='top-panels'><section class='panel add-panel'>"
@@ -508,7 +560,8 @@ public class App {
                             + "<input name='category' aria-label='カテゴリ' placeholder='カテゴリ'>"
                             + "<button>追加</button></form></section><section class='panel search-panel controls'>"
                             + "<h2 class='panel-heading'>検索・絞り込み</h2><div class='control-forms'>");
-            html.append("<form class='control-form' method='get' action='/'><input name='q' aria-label='検索' placeholder='Todoを検索' value='")
+            html.append(
+                    "<form class='control-form' method='get' action='/'><input name='q' aria-label='検索' placeholder='Todoを検索' value='")
                     .append(escapeHtml(keyword)).append("'><button>検索</button>")
                     .append("<input type='hidden' name='filter' value='").append(filter).append("'>")
                     .append("<input type='hidden' name='category' value='").append(escapeHtml(category)).append("'>");
@@ -556,7 +609,8 @@ public class App {
                     .append("<form class='danger-bulk' method='post' action='/delete-completed' ")
                     .append("onsubmit=\"return confirm('完了済みのTodoをすべて削除しますか？');\">")
                     .append("<button>完了済みを一括削除</button></form></div>")
-                    .append("<div class='section-heading'><h2>Todo一覧</h2><span class='deadline-legend'><span class='deadline-legend-item tomorrow'>明日締切</span><span class='deadline-legend-item today'>今日締切</span></span></div><ul class='todo-list'>"); // ★ 一覧を組み立てます。
+                    .append("<div class='section-heading'><h2>Todo一覧</h2><span class='deadline-legend'><span class='deadline-legend-item tomorrow'>明日締切</span><span class='deadline-legend-item today'>今日締切</span></span></div><ul class='todo-list'>"); // ★
+                                                                                                                                                                                                                                                         // 一覧を組み立てます。
             LocalDate today = LocalDate.now();
             MissionSession session = missionSession(exchange);
             Set<Integer> selected;
@@ -614,9 +668,11 @@ public class App {
                                 .append("'>").append(isDone ? "完了済み" + mark : "未完了")
                                 .append("</span>")
                                 .append(todoCategory == null || todoCategory.isEmpty()
-                                        ? "<span>カテゴリなし</span>" : "<span>カテゴリ: " + escapeHtml(todoCategory) + "</span>")
+                                        ? "<span>カテゴリなし</span>"
+                                        : "<span>カテゴリ: " + escapeHtml(todoCategory) + "</span>")
                                 .append(dueDate == null || dueDate.isEmpty()
-                                        ? "<span>締切なし</span>" : "<span>締切: " + escapeHtml(dueDate) + "</span>")
+                                        ? "<span>締切なし</span>"
+                                        : "<span>締切: " + escapeHtml(dueDate) + "</span>")
                                 .append("</div><div class='todo-actions'>")
                                 .append("<a class='action edit' href='/edit?id=").append(id).append("'>編集</a>")
                                 .append("<a class='action done' href='/done?id=").append(id)
