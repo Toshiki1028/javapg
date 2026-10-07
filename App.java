@@ -29,14 +29,21 @@ public class App {
             } // メソッドの確認を終えます。
             try (Connection connection = DriverManager.getConnection(DB_URL); // SQLiteへ接続します。
                     Statement statement = connection.createStatement(); // SELECTを実行する準備をします。
-                    ResultSet results = statement.executeQuery("SELECT title, done FROM todos ORDER BY id")) { // 全Todoを読みます。
+                    ResultSet results = statement.executeQuery("SELECT title, done, due_date FROM todos ORDER BY id")) { // 全Todoを読みます。
                 StringBuilder json = new StringBuilder("["); // JSON配列を始めます。
                 while (results.next()) { // Todoを1件ずつ処理します。
                     if (json.length() > 1)
                         json.append(','); // 2件目以降に区切りを入れます。
                     json.append("{\"title\":\"").append(jsonEscape(results.getString("title"))) // タイトルをJSONへ追加します。
                             .append("\",\"done\":").append(results.getInt("done") != 0) // 完了状態を真偽値で追加します。
-                            .append('}'); // 1件分のJSONを閉じます。
+                            .append(",\"due_date\":");
+                    String dueDate = results.getString("due_date");
+                    if (dueDate == null) {
+                        json.append("null");
+                    } else {
+                        json.append('"').append(jsonEscape(dueDate)).append('"');
+                    }
+                    json.append('}'); // 1件分のJSONを閉じます。
                 } // 全Todoの処理を終えます。
                 json.append(']'); // JSON配列を閉じます。
                 byte[] body = json.toString().getBytes(StandardCharsets.UTF_8); // UTF-8の応答データにします。
