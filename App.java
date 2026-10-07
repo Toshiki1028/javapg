@@ -13,9 +13,24 @@ import java.sql.PreparedStatement; // ★ 値を安全にSQLへ渡します。
 import java.sql.ResultSet; // ★ SELECTの結果を読みます。
 import java.sql.SQLException; // ★ データベースのエラーを扱います。
 import java.sql.Statement; // ★ テーブル作成に使います。
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class App {
     private static final String DB_URL = "jdbc:sqlite:todos.db"; // ★ 保存先をSQLiteにします。
+    private static final Map<String, MissionSession> MISSION_SESSIONS = new ConcurrentHashMap<>();
+
+    private static class MissionSession {
+        final Set<Integer> selected = new HashSet<>();
+        final Set<Integer> completedInRun = new HashSet<>();
+        int earnedCount;
+        boolean active;
+    }
 
     public static void main(String[] args) throws Exception {
         createTable(); // ★ 起動時にtodos表を用意します。
@@ -99,7 +114,117 @@ public class App {
     private static void handle(HttpExchange exchange) throws IOException, SQLException { // ★ SQL例外も扱います。
         String path = exchange.getRequestURI().getPath();
         String method = exchange.getRequestMethod();
-        if (path.equals("/add") && method.equals("POST")) {
+        if (path.equals("/mission") && method.equals("GET")) {
+            MissionSession session = missionSession(exchange);
+            synchronized (session) {
+                session.active = true;
+                session.completedInRun.clear();
+                session.earnedCount = 0;
+            }
+            redirect(exchange, "/mission/play");
+            return;
+        } else if (path.equals("/mission/select") && method.equals("GET")) {
+            Integer id = queryId(exchange);
+            if (id != null) {
+                try (Connection connection = DriverManager.getConnection(DB_URL);
+                        PreparedStatement statement = connection.prepareStatement(
+                                "SELECT done, due_date FROM todos WHERE id = ?")) {
+                    statement.setInt(1, id);
+                    try (ResultSet results = statement.executeQuery()) {
+                        if (results.next() && results.getInt("done") == 0
+                                && !isDueToday(results.getString("due_date"))) {
+                            MissionSession session = missionSession(exchange);
+                            synchronized (session) {
+                                session.selected.add(id);
+                            }
+                        }
+                    }
+                }
+            }
+            redirect(exchange);
+            return;
+        } else if (path.equals("/mission/play") && method.equals("GET")) {
+            MissionSession session = missionSession(exchange);
+            String html;
+            synchronized (session) {
+                if (!session.active) {
+                    redirect(exchange, "/mission");
+                    return;
+                }
+                StringBuilder missions = new StringBuilder("<ul>");
+                int remaining = 0;
+                try (Connection connection = DriverManager.getConnection(DB_URL);
+                        Statement statement = connection.createStatement();
+                        ResultSet results = statement.executeQuery(
+                                "SELECT id, title, done, due_date, category FROM todos ORDER BY id")) {
+                    while (results.next()) {
+                        int id = results.getInt("id");
+                        String dueDate = results.getString("due_date");
+                        if (results.getInt("done") != 0
+                                || (!session.selected.contains(id) && !isDueToday(dueDate))) {
+                            continue;
+                        }
+                        remaining++;
+                        String category = results.getString("category");
+                        missions.append("<li>").append(escapeHtml(results.getString("title")))
+                                .append(category == null || category.isEmpty() ? "" : " カテゴリ: " + escapeHtml(category))
+                                .append(dueDate == null || dueDate.isEmpty() ? "" : " 締切: " + escapeHtml(dueDate))
+                                .append(" <a href='/mission/done?id=").append(id).append("'>達成</a></li>");
+                    }
+                }
+                missions.append("</ul>");
+                int completed = session.completedInRun.size();
+                int total = remaining + completed;
+                int level = Math.min(5, 1 + session.earnedCount / 3);
+                int expPercent = level == 5 ? 100 : (session.earnedCount % 3) * 100 / 3;
+                String gauges = "<style>.gauge{width:200px;height:16px;background:#e5e5e5;border:1px solid #777;}"
+                        + ".gauge span{display:block;height:100%;background:#57a86b;}</style>"
+                        + "<p>EXP</p>" + gauge(expPercent)
+                        + "<p>LEVEL " + level + "</p>" + gauge(level * 20);
+                if (total > 0 && remaining == 0) {
+                    html = "<h1>MISSION COMPLETE!</h1>"
+                            + "<p>おめでとう！すべてのミッションを達成しました！</p>"
+                            + "<p>" + total + "件中" + completed + "件達成</p>" + gauges;
+                } else {
+                    html = "<h1>MISSION MODE</h1><h2>今日のミッション</h2>"
+                            + "<p>" + total + "件中" + completed + "件達成</p>" + gauges
+                            + (total == 0 ? "<p>現在出撃中のミッションはありません</p>"
+                                    + "<p>通常モードから『ミッションへ』を選択してください</p>" : missions.toString());
+                }
+            }
+            exchange.getResponseHeaders().set("Cache-Control", "no-store");
+            send(exchange, 200, html + "<a href='/mission'>ミッションを開き直す</a> | "
+                    + "<a href='/'>通常モードに戻る</a>", "text/html");
+            return;
+        } else if (path.equals("/mission/done") && method.equals("GET")) {
+            MissionSession session = missionSession(exchange);
+            Integer id = queryId(exchange);
+            synchronized (session) {
+                if (session.active && id != null) {
+                    try (Connection connection = DriverManager.getConnection(DB_URL);
+                            PreparedStatement lookup = connection.prepareStatement(
+                                    "SELECT done, due_date FROM todos WHERE id = ?")) {
+                        lookup.setInt(1, id);
+                        try (ResultSet results = lookup.executeQuery()) {
+                            if (results.next() && results.getInt("done") == 0
+                                    && (session.selected.contains(id) || isDueToday(results.getString("due_date")))) {
+                                try (PreparedStatement update = connection.prepareStatement(
+                                        "UPDATE todos SET done = 1 WHERE id = ? AND done = 0")) {
+                                    update.setInt(1, id);
+                                    if (update.executeUpdate() == 1) {
+                                        if (session.completedInRun.add(id)) {
+                                            session.earnedCount++;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            redirect(exchange, "/mission/play");
+            return;
+        } else if (path.equals("/add") && method.equals("POST")) {
             String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             String title = "";
             String dueDate = "";
@@ -146,19 +271,32 @@ public class App {
         } else if (path.equals("/delete") && method.equals("GET")) {
             Integer id = queryId(exchange); // ★ 削除対象のIDを読みます。
             if (id != null) {
+                int deleted;
                 try (Connection connection = DriverManager.getConnection(DB_URL);
                         PreparedStatement statement = connection.prepareStatement(
                                 "DELETE FROM todos WHERE id = ?")) { // ★ DELETEを準備します。
                     statement.setInt(1, id); // ★ IDをパラメータとして渡します。
-                    statement.executeUpdate(); // ★ 1件削除します。
+                    deleted = statement.executeUpdate(); // ★ 1件削除します。
+                }
+                if (deleted == 1) {
+                    forgetTodo(id);
                 }
             }
             redirect(exchange);
             return;
         } else if (path.equals("/delete-completed") && method.equals("POST")) {
+            List<Integer> deletedIds = new ArrayList<>();
             try (Connection connection = DriverManager.getConnection(DB_URL);
                     Statement statement = connection.createStatement()) {
+                try (ResultSet results = statement.executeQuery("SELECT id FROM todos WHERE done = 1")) {
+                    while (results.next()) {
+                        deletedIds.add(results.getInt("id"));
+                    }
+                }
                 statement.executeUpdate("DELETE FROM todos WHERE done = 1");
+            }
+            for (int id : deletedIds) {
+                forgetTodo(id);
             }
             redirect(exchange);
             return;
@@ -298,7 +436,9 @@ public class App {
             String categoryQuery = category.isEmpty() ? "" : "&amp;category=" + URLEncoder.encode(category, StandardCharsets.UTF_8);
             StringBuilder html = new StringBuilder(
                     "<style>li.due-today .todo-title{border:2px solid #c62828;background:#ffc9c9;color:#000;padding:2px 5px;display:inline-block;}"
-                            + "li.due-tomorrow .todo-title{border:2px solid #e6b800;background:#fff29a;color:#000;padding:2px 5px;display:inline-block;}</style>"
+                            + "li.due-tomorrow .todo-title{border:2px solid #e6b800;background:#fff29a;color:#000;padding:2px 5px;display:inline-block;}"
+                            + ".deployed{display:inline-block;background:#c62828;color:#fff;border-radius:6px;padding:3px 8px;cursor:default;}</style>"
+                            + "<nav>通常モード | <a href='/mission'>ミッションモード</a></nav>"
                             + "<form method='post' action='/add'><input name='todo'>"
                             + "<input type='date' name='due_date'><input name='category' placeholder='カテゴリ'>"
                             + "<button>追加</button></form>");
@@ -333,6 +473,11 @@ public class App {
                     .append(categoryQuery)
                     .append("'>名前順</a><ul>"); // ★ 一覧を組み立てます。
             LocalDate today = LocalDate.now();
+            MissionSession session = missionSession(exchange);
+            Set<Integer> selected;
+            synchronized (session) {
+                selected = new HashSet<>(session.selected);
+            }
             try (Connection connection = DriverManager.getConnection(DB_URL);
                     PreparedStatement statement = connection.prepareStatement(sql)) {
                 int parameterIndex = 1;
@@ -356,7 +501,8 @@ public class App {
                         String title = escapeHtml(results.getString("title")); // ★ タイトルをHTML用に変換します。
                         String dueDate = results.getString("due_date");
                         String todoCategory = results.getString("category");
-                        String mark = results.getInt("done") != 0 ? " ✔" : ""; // ★ DBの完了状態を使います。
+                        boolean isDone = results.getInt("done") != 0;
+                        String mark = isDone ? " ✔" : ""; // ★ DBの完了状態を使います。
                         String dueClass = "";
                         if (dueDate != null && !dueDate.isEmpty()) {
                             try {
@@ -382,7 +528,15 @@ public class App {
                                 .append(" <a href='/edit?id=").append(id).append("'>編集</a>")
                                 .append(" <a href='/done?id=").append(id)
                                 .append("'>完了</a> <a href='/delete?id=").append(id)
-                                .append("'>削除</a></li>"); // ★ SELECTしたTodoを表示します。
+                                .append("'>削除</a>");
+                        if (!isDone) {
+                            if (selected.contains(id) || isDueToday(dueDate)) {
+                                html.append(" <span class='deployed'>出撃中</span>");
+                            } else {
+                                html.append(" <a href='/mission/select?id=").append(id).append("'>ミッションへ</a>");
+                            }
+                        }
+                        html.append("</li>"); // ★ SELECTしたTodoを表示します。
                     }
                     html.append("<p>" + totalCount + "件中" + doneCount + "件 完了</p>");
                 }
@@ -404,6 +558,50 @@ public class App {
         } catch (NumberFormatException e) {
             return null;
         }
+    }
+
+    private static MissionSession missionSession(HttpExchange exchange) {
+        String cookies = exchange.getRequestHeaders().getFirst("Cookie");
+        if (cookies != null) {
+            for (String cookie : cookies.split(";")) {
+                String[] parts = cookie.trim().split("=", 2);
+                if (parts.length == 2 && parts[0].equals("mission_session")) {
+                    MissionSession session = MISSION_SESSIONS.get(parts[1]);
+                    if (session != null) {
+                        return session;
+                    }
+                }
+            }
+        }
+        String id = UUID.randomUUID().toString();
+        MissionSession session = new MissionSession();
+        MISSION_SESSIONS.put(id, session);
+        exchange.getResponseHeaders().add("Set-Cookie", "mission_session=" + id + "; Path=/; HttpOnly; SameSite=Lax");
+        return session;
+    }
+
+    private static void forgetTodo(int id) {
+        for (MissionSession session : MISSION_SESSIONS.values()) {
+            synchronized (session) {
+                session.selected.remove(id);
+                session.completedInRun.remove(id);
+            }
+        }
+    }
+
+    private static boolean isDueToday(String dueDate) {
+        if (dueDate == null || dueDate.isEmpty()) {
+            return false;
+        }
+        try {
+            return LocalDate.parse(dueDate).equals(LocalDate.now());
+        } catch (DateTimeParseException e) {
+            return false;
+        }
+    }
+
+    private static String gauge(int percent) {
+        return "<div class='gauge'><span style='width:" + percent + "%'></span></div>";
     }
 
     private static String escapeHtml(String value) { // ★ 保存したタイトルを安全に表示します。
@@ -450,7 +648,11 @@ public class App {
     } // 補助メソッドを終えます。
 
     private static void redirect(HttpExchange exchange) throws IOException {
-        exchange.getResponseHeaders().set("Location", "/");
+        redirect(exchange, "/");
+    }
+
+    private static void redirect(HttpExchange exchange, String path) throws IOException {
+        exchange.getResponseHeaders().set("Location", path);
         exchange.sendResponseHeaders(303, -1);
         exchange.close();
     }
