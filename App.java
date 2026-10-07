@@ -135,6 +135,13 @@ public class App {
             }
             redirect(exchange);
             return;
+        } else if (path.equals("/delete-completed") && method.equals("POST")) {
+            try (Connection connection = DriverManager.getConnection(DB_URL);
+                    Statement statement = connection.createStatement()) {
+                statement.executeUpdate("DELETE FROM todos WHERE done = 1");
+            }
+            redirect(exchange);
+            return;
         } else if (path.equals("/edit") && method.equals("GET")) {
             Integer id = queryId(exchange);
             if (id == null) {
@@ -248,6 +255,9 @@ public class App {
             StringBuilder html = new StringBuilder(
                     "<form method='post' action='/add'><input name='todo'>"
                             + "<input type='date' name='due_date'><button>追加</button></form>");
+            html.append("<form method='post' action='/delete-completed' ")
+                    .append("onsubmit=\"return confirm('完了済みのTodoをすべて削除しますか？');\">")
+                    .append("<button>完了済みを一括削除</button></form>");
             html.append("<form method='get' action='/'><input name='q' value='")
                     .append(escapeHtml(keyword)).append("'><button>検索</button>")
                     .append("<input type='hidden' name='filter' value='").append(filter).append("'>");
