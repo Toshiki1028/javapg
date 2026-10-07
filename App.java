@@ -111,29 +111,65 @@ public class App {
             redirect(exchange);
             return;
         } else if (path.equals("/") && method.equals("GET")) {
+            String query = exchange.getRequestURI().getQuery();
+            String filter = "all";
+            String sort = "";
+            if (query != null) {
+                for (String parameter : query.split("&")) {
+                    if (parameter.equals("filter=todo")) {
+                        filter = "todo";
+                    } else if (parameter.equals("filter=done")) {
+                        filter = "done";
+                    } else if (parameter.equals("filter=all")) {
+                        filter = "all";
+                    } else if (parameter.equals("sort=new")) {
+                        sort = "new";
+                    } else if (parameter.equals("sort=name")) {
+                        sort = "name";
+                    }
+                }
+            }
+            String sql = "SELECT id, title, done FROM todos";
+            if (filter.equals("todo")) {
+                sql += " WHERE done = 0";
+            } else if (filter.equals("done")) {
+                sql += " WHERE done != 0";
+            }
+            if (sort.equals("new")) {
+                sql += " ORDER BY id DESC";
+            } else if (sort.equals("name")) {
+                sql += " ORDER BY title ASC";
+            } else {
+                sql += " ORDER BY id";
+            }
+            String sortQuery = sort.isEmpty() ? "" : "&amp;sort=" + sort;
             StringBuilder html = new StringBuilder(
-                    "<form method='post' action='/add'><input name='todo'><button>追加</button></form><ul>"); // ★
-                                                                                                            // 一覧を組み立てます。
+                    "<form method='post' action='/add'><input name='todo'><button>追加</button></form>");
+            html.append("<a href='/?filter=all").append(sortQuery).append("'>全部</a> | ")
+                    .append("<a href='/?filter=todo").append(sortQuery).append("'>未完了</a> | ")
+                    .append("<a href='/?filter=done").append(sortQuery).append("'>完了</a><br>")
+                    .append("<a href='/?filter=").append(filter).append("&amp;sort=new'>新しい順</a> | ")
+                    .append("<a href='/?filter=").append(filter).append("&amp;sort=name'>名前順</a><ul>"); // ★ 一覧を組み立てます。
             try (Connection connection = DriverManager.getConnection(DB_URL);
                     Statement statement = connection.createStatement();
-                    ResultSet results = statement.executeQuery(
-                            "SELECT id, title, done FROM todos ORDER BY id")) { // ★ SELECTで一覧を取得します。
+                    ResultSet results = statement.executeQuery(sql)) { // ★ フィルターと並び順に応じたSELECTで一覧を取得します。
                 int totalCount = 0;
-int doneCount = 0;
-                            while (results.next()) { // ★ 取得した行を表示します。
-                   totalCount++;
+                int doneCount = 0;
+                while (results.next()) { // ★ 取得した行を表示します。
+                    totalCount++;
 
-if (results.getInt("done") != 0) {
-    doneCount++;
-}
-                                int id = results.getInt("id"); // ★ DBのIDを使います。
+                    if (results.getInt("done") != 0) {
+                        doneCount++;
+                    }
+                    int id = results.getInt("id"); // ★ DBのIDを使います。
                     String title = escapeHtml(results.getString("title")); // ★ タイトルをHTML用に変換します。
                     String mark = results.getInt("done") != 0 ? " ✔" : ""; // ★ DBの完了状態を使います。
                     html.append("<li>").append(title).append(mark)
                             .append(" <a href='/done?id=").append(id)
                             .append("'>完了</a> <a href='/delete?id=").append(id)
                             .append("'>削除</a></li>"); // ★ SELECTしたTodoを表示します。
-                }html.append("<p>" + totalCount + "件中" + doneCount + "件 完了</p>");
+                }
+                html.append("<p>" + totalCount + "件中" + doneCount + "件 完了</p>");
             }
             html.append("</ul>");
             send(exchange, 200, html.toString(), "text/html"); // ★ DBから作った一覧を返します。
@@ -158,18 +194,33 @@ if (results.getInt("done") != 0) {
         return value.replace("&", "&amp;").replace("<", "&lt;")
                 .replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;");
     }
+
     private static String jsonEscape(String value) { // JSON文字列の中身をエスケープします。
         StringBuilder escaped = new StringBuilder(); // 変換後の文字をためます。
         for (int i = 0; i < value.length(); i++) { // 文字を順に調べます。
             char c = value.charAt(i); // 現在の文字を取り出します。
             switch (c) { // 特別な文字を判定します。
-                case '"': escaped.append("\\\""); break; // 引用符をエスケープします。
-                case '\\': escaped.append("\\\\"); break; // バックスラッシュをエスケープします。
-                case '\b': escaped.append("\\b"); break; // バックスペースをエスケープします。
-                case '\f': escaped.append("\\f"); break; // 改ページをエスケープします。
-                case '\n': escaped.append("\\n"); break; // 改行をエスケープします。
-                case '\r': escaped.append("\\r"); break; // 復帰をエスケープします。
-                case '\t': escaped.append("\\t"); break; // タブをエスケープします。
+                case '"':
+                    escaped.append("\\\"");
+                    break; // 引用符をエスケープします。
+                case '\\':
+                    escaped.append("\\\\");
+                    break; // バックスラッシュをエスケープします。
+                case '\b':
+                    escaped.append("\\b");
+                    break; // バックスペースをエスケープします。
+                case '\f':
+                    escaped.append("\\f");
+                    break; // 改ページをエスケープします。
+                case '\n':
+                    escaped.append("\\n");
+                    break; // 改行をエスケープします。
+                case '\r':
+                    escaped.append("\\r");
+                    break; // 復帰をエスケープします。
+                case '\t':
+                    escaped.append("\\t");
+                    break; // タブをエスケープします。
                 default: // それ以外の文字を処理します。
                     if (c < 0x20) { // 残りの制御文字を判定します。
                         escaped.append("\\u00").append(Character.forDigit(c >>> 4, 16)) // 上位の桁を書きます。
