@@ -111,6 +111,60 @@ public class App {
             }
             redirect(exchange);
             return;
+        } else if (path.equals("/edit") && method.equals("GET")) {
+            Integer id = queryId(exchange);
+            if (id == null) {
+                send(exchange, 404, "編集するTodoが見つかりません", "text/plain");
+                return;
+            }
+            try (Connection connection = DriverManager.getConnection(DB_URL);
+                    PreparedStatement statement = connection.prepareStatement(
+                            "SELECT title FROM todos WHERE id = ?")) {
+                statement.setInt(1, id);
+                try (ResultSet results = statement.executeQuery()) {
+                    if (!results.next()) {
+                        send(exchange, 404, "編集するTodoが見つかりません", "text/plain");
+                        return;
+                    }
+                    String html = "<form method='post' action='/update'>"
+                            + "<input type='hidden' name='id' value='" + id + "'>"
+                            + "<input name='title' value='" + escapeHtml(results.getString("title")) + "'>"
+                            + "<button>更新</button></form><a href='/'>一覧に戻る</a>";
+                    send(exchange, 200, html, "text/html");
+                }
+            }
+            return;
+        } else if (path.equals("/update") && method.equals("POST")) {
+            String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            Integer id = null;
+            String title = "";
+            for (String parameter : body.split("&")) {
+                if (parameter.startsWith("id=")) {
+                    try {
+                        id = Integer.parseInt(parameter.substring(3));
+                    } catch (NumberFormatException e) {
+                        id = null;
+                    }
+                } else if (parameter.startsWith("title=")) {
+                    try {
+                        title = URLDecoder.decode(parameter.substring(6), StandardCharsets.UTF_8)
+                                .replace('\r', ' ').replace('\n', ' ');
+                    } catch (IllegalArgumentException e) {
+                        title = "";
+                    }
+                }
+            }
+            if (id != null && !title.isEmpty()) {
+                try (Connection connection = DriverManager.getConnection(DB_URL);
+                        PreparedStatement statement = connection.prepareStatement(
+                                "UPDATE todos SET title = ? WHERE id = ?")) {
+                    statement.setString(1, title);
+                    statement.setInt(2, id);
+                    statement.executeUpdate();
+                }
+            }
+            redirect(exchange);
+            return;
         } else if (path.equals("/") && method.equals("GET")) {
             String query = exchange.getRequestURI().getRawQuery();
             String filter = "all";
@@ -191,6 +245,7 @@ public class App {
                         String title = escapeHtml(results.getString("title")); // ★ タイトルをHTML用に変換します。
                         String mark = results.getInt("done") != 0 ? " ✔" : ""; // ★ DBの完了状態を使います。
                         html.append("<li>").append(title).append(mark)
+                                .append(" <a href='/edit?id=").append(id).append("'>編集</a>")
                                 .append(" <a href='/done?id=").append(id)
                                 .append("'>完了</a> <a href='/delete?id=").append(id)
                                 .append("'>削除</a></li>"); // ★ SELECTしたTodoを表示します。
