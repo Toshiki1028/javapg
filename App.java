@@ -66,7 +66,18 @@ public class App {
         try (Connection connection = DriverManager.getConnection(DB_URL);
                 Statement statement = connection.createStatement()) { // ★ 接続とStatementを閉じます。
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS todos "
-                    + "(id INTEGER PRIMARY KEY, title TEXT, done INTEGER)"); // ★ 必要な3列を定義します。
+                    + "(id INTEGER PRIMARY KEY, title TEXT, done INTEGER, due_date TEXT)");
+            boolean hasDueDate = false;
+            try (ResultSet columns = statement.executeQuery("PRAGMA table_info(todos)")) {
+                while (columns.next()) {
+                    if (columns.getString("name").equals("due_date")) {
+                        hasDueDate = true;
+                    }
+                }
+            }
+            if (!hasDueDate) {
+                statement.executeUpdate("ALTER TABLE todos ADD COLUMN due_date TEXT");
+            }
         }
     }
 
@@ -75,13 +86,26 @@ public class App {
         String method = exchange.getRequestMethod();
         if (path.equals("/add") && method.equals("POST")) {
             String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
-            String value = body.startsWith("todo=") ? body.substring(5) : ""; // ★ 不正なフォーム内容を無視します。
-            String title = URLDecoder.decode(value, StandardCharsets.UTF_8).replace('\r', ' ').replace('\n', ' ');
+            String title = "";
+            String dueDate = "";
+            for (String parameter : body.split("&")) {
+                try {
+                    if (parameter.startsWith("todo=")) {
+                        title = URLDecoder.decode(parameter.substring(5), StandardCharsets.UTF_8)
+                                .replace('\r', ' ').replace('\n', ' ');
+                    } else if (parameter.startsWith("due_date=")) {
+                        dueDate = URLDecoder.decode(parameter.substring(9), StandardCharsets.UTF_8);
+                    }
+                } catch (IllegalArgumentException e) {
+                    // 不正なフォーム値は空として扱います。
+                }
+            }
             if (!title.isEmpty()) {
                 try (Connection connection = DriverManager.getConnection(DB_URL);
                         PreparedStatement statement = connection.prepareStatement(
-                                "INSERT INTO todos (title, done) VALUES (?, 0)")) { // ★ INSERTを準備します。
+                                "INSERT INTO todos (title, done, due_date) VALUES (?, 0, ?)")) {
                     statement.setString(1, title); // ★ 入力値をパラメータとして渡します。
+                    statement.setString(2, dueDate);
                     statement.executeUpdate(); // ★ 1件追加します。
                 }
             }
@@ -119,16 +143,19 @@ public class App {
             }
             try (Connection connection = DriverManager.getConnection(DB_URL);
                     PreparedStatement statement = connection.prepareStatement(
-                            "SELECT title FROM todos WHERE id = ?")) {
+                            "SELECT title, due_date FROM todos WHERE id = ?")) {
                 statement.setInt(1, id);
                 try (ResultSet results = statement.executeQuery()) {
                     if (!results.next()) {
                         send(exchange, 404, "編集するTodoが見つかりません", "text/plain");
                         return;
                     }
+                    String dueDate = results.getString("due_date");
                     String html = "<form method='post' action='/update'>"
                             + "<input type='hidden' name='id' value='" + id + "'>"
                             + "<input name='title' value='" + escapeHtml(results.getString("title")) + "'>"
+                            + "<input type='date' name='due_date' value='"
+                            + escapeHtml(dueDate == null ? "" : dueDate) + "'>"
                             + "<button>更新</button></form><a href='/'>一覧に戻る</a>";
                     send(exchange, 200, html, "text/html");
                 }
@@ -138,6 +165,7 @@ public class App {
             String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             Integer id = null;
             String title = "";
+            String dueDate = "";
             for (String parameter : body.split("&")) {
                 if (parameter.startsWith("id=")) {
                     try {
@@ -152,14 +180,21 @@ public class App {
                     } catch (IllegalArgumentException e) {
                         title = "";
                     }
+                } else if (parameter.startsWith("due_date=")) {
+                    try {
+                        dueDate = URLDecoder.decode(parameter.substring(9), StandardCharsets.UTF_8);
+                    } catch (IllegalArgumentException e) {
+                        dueDate = "";
+                    }
                 }
             }
             if (id != null && !title.isEmpty()) {
                 try (Connection connection = DriverManager.getConnection(DB_URL);
                         PreparedStatement statement = connection.prepareStatement(
-                                "UPDATE todos SET title = ? WHERE id = ?")) {
+                                "UPDATE todos SET title = ?, due_date = ? WHERE id = ?")) {
                     statement.setString(1, title);
-                    statement.setInt(2, id);
+                    statement.setString(2, dueDate);
+                    statement.setInt(3, id);
                     statement.executeUpdate();
                 }
             }
@@ -191,7 +226,7 @@ public class App {
                     }
                 }
             }
-            String sql = "SELECT id, title, done FROM todos";
+            String sql = "SELECT id, title, done, due_date FROM todos";
             if (filter.equals("todo")) {
                 sql += " WHERE done = 0";
             } else if (filter.equals("done")) {
@@ -211,7 +246,8 @@ public class App {
             String sortQuery = sort.isEmpty() ? "" : "&amp;sort=" + sort;
             String keywordQuery = keyword.isEmpty() ? "" : "&amp;q=" + URLEncoder.encode(keyword, StandardCharsets.UTF_8);
             StringBuilder html = new StringBuilder(
-                    "<form method='post' action='/add'><input name='todo'><button>追加</button></form>");
+                    "<form method='post' action='/add'><input name='todo'>"
+                            + "<input type='date' name='due_date'><button>追加</button></form>");
             html.append("<form method='get' action='/'><input name='q' value='")
                     .append(escapeHtml(keyword)).append("'><button>検索</button>")
                     .append("<input type='hidden' name='filter' value='").append(filter).append("'>");
@@ -243,8 +279,11 @@ public class App {
                         }
                         int id = results.getInt("id"); // ★ DBのIDを使います。
                         String title = escapeHtml(results.getString("title")); // ★ タイトルをHTML用に変換します。
+                        String dueDate = results.getString("due_date");
                         String mark = results.getInt("done") != 0 ? " ✔" : ""; // ★ DBの完了状態を使います。
                         html.append("<li>").append(title).append(mark)
+                                .append(dueDate == null || dueDate.isEmpty()
+                                        ? " 締切なし" : " 締切: " + escapeHtml(dueDate))
                                 .append(" <a href='/edit?id=").append(id).append("'>編集</a>")
                                 .append(" <a href='/done?id=").append(id)
                                 .append("'>完了</a> <a href='/delete?id=").append(id)
