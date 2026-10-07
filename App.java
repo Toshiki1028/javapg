@@ -5,6 +5,8 @@ import java.net.InetSocketAddress;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.sql.Connection; // ★ SQLiteへの接続に使います。
 import java.sql.DriverManager; // ★ JDBCでデータベースを開きます。
 import java.sql.PreparedStatement; // ★ 値を安全にSQLへ渡します。
@@ -295,7 +297,9 @@ public class App {
             String keywordQuery = keyword.isEmpty() ? "" : "&amp;q=" + URLEncoder.encode(keyword, StandardCharsets.UTF_8);
             String categoryQuery = category.isEmpty() ? "" : "&amp;category=" + URLEncoder.encode(category, StandardCharsets.UTF_8);
             StringBuilder html = new StringBuilder(
-                    "<form method='post' action='/add'><input name='todo'>"
+                    "<style>li.due-today .todo-title{border:2px solid #c62828;background:#ffc9c9;color:#000;padding:2px 5px;display:inline-block;}"
+                            + "li.due-tomorrow .todo-title{border:2px solid #e6b800;background:#fff29a;color:#000;padding:2px 5px;display:inline-block;}</style>"
+                            + "<form method='post' action='/add'><input name='todo'>"
                             + "<input type='date' name='due_date'><input name='category' placeholder='カテゴリ'>"
                             + "<button>追加</button></form>");
             html.append("<form method='post' action='/delete-completed' ")
@@ -328,6 +332,7 @@ public class App {
                     .append("<a href='/?filter=").append(filter).append("&amp;sort=name").append(keywordQuery)
                     .append(categoryQuery)
                     .append("'>名前順</a><ul>"); // ★ 一覧を組み立てます。
+            LocalDate today = LocalDate.now();
             try (Connection connection = DriverManager.getConnection(DB_URL);
                     PreparedStatement statement = connection.prepareStatement(sql)) {
                 int parameterIndex = 1;
@@ -352,7 +357,24 @@ public class App {
                         String dueDate = results.getString("due_date");
                         String todoCategory = results.getString("category");
                         String mark = results.getInt("done") != 0 ? " ✔" : ""; // ★ DBの完了状態を使います。
-                        html.append("<li>").append(title).append(mark)
+                        String dueClass = "";
+                        if (dueDate != null && !dueDate.isEmpty()) {
+                            try {
+                                LocalDate deadline = LocalDate.parse(dueDate);
+                                if (deadline.equals(today)) {
+                                    dueClass = "due-today";
+                                } else if (deadline.equals(today.plusDays(1))) {
+                                    dueClass = "due-tomorrow";
+                                }
+                            } catch (DateTimeParseException e) {
+                                // 日付として読めない既存データは通常表示にします。
+                            }
+                        }
+                        html.append("<li");
+                        if (!dueClass.isEmpty()) {
+                            html.append(" class='").append(dueClass).append("'");
+                        }
+                        html.append("><span class='todo-title'>").append(title).append("</span>").append(mark)
                                 .append(todoCategory == null || todoCategory.isEmpty()
                                         ? " カテゴリなし" : " カテゴリ: " + escapeHtml(todoCategory))
                                 .append(dueDate == null || dueDate.isEmpty()
